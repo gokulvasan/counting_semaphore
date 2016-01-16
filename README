@@ -1,0 +1,73 @@
+
+/*
+* Basic implementation of counting semaphore:
+* 
+* Idea is to use two semaphore.:- S and T.
+* S is initialized to 1 and T is initialized to 0.
+* one semaphore to enter and guard critical Section 
+* and other one to check availability of resources, 
+* On unavailability T blocks the task.
+* 
+* 
+*/
+MP (int R) 		/* multiple wait */
+{
+	P(S); 		/* lock counter */
+	R=R-1; 		/* request a resource */
+	if(R < 0) 	/* none available? */
+	{
+		V(S); 	/* release counter */
+		P(T); 	/* wait for free resource */
+	};
+	V(S); 		/* release counter */
+}
+
+void MV(int R) 		/* multiple signal */
+{
+	P(S); 		/* lock counter */
+	R=R+1; 		/* free resource */
+	if (R <= 0) 	/* give that task the go ahead */
+		V(T);
+	else
+		V(S); 	/* release counter
+}
+Courtesy : RealTimeSystems-Philip.A.Laplante
+
+The Major problem with this implementaion in MP where V(S) happens and in sequence P(T), 
+A possiblity of race condition could occur, i.e. test and set is not atomic and also
+lets multiple resource decrement blocking the tasks in spite of availability of resource
+
+Different Approach:
+	I tried to extend this little differently to make the entry protocol
+ completely atomic.
+
+MP(int R) 
+{
+	do {
+		P(T);		/* Acquire resource lock 		*/
+		P(S);		/* Acquire critical Section lock 	*/
+		R = R-1;	/* Decrement resource/Prologue condition*/
+		V(S);		/* Release Critical Section lock 	*/ 
+		if(R < 0) 	/* check resource is available		*/
+			break;  /* If no resource then dont release resource lock*/
+		V(T);		/* else,release resource lock 		*/
+	} while(0);
+}
+
+MV(int R)
+{
+	P(S);	 	/* Acquire critical section lock*/
+	if(R < 0)	/* Check on any process is blocked*/ 
+		V(T);	/* If yes relase resource lock*/
+	R = R+1;	/* Now increment resource/Epilogue condition */
+	V(S);  		/* release Critical Section lock*/
+}
+
+Intitutive Part of this approach is even though V(T) gets released in MV before epilogue 
+condition but critical section is still locked so the atomicity of prologue and epilogue
+is maintained.
+
+I further extended this into just prologue and epilogue function which the user can use
+to extend entry and exit condition for mutual exclusion.
+This could be used in many scenarios like DiningPhilosophers Problem, Producer Consumer Problem...
+
